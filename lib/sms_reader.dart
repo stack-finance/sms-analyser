@@ -23,10 +23,13 @@ class SMSReader extends StatefulWidget {
 class _SMSReaderState extends State<SMSReader> {
   List<SmsMessage> _messages = [];
   late Telephony _instance;
+  DateTime _today = DateTime.now();
+  var _earlier;
 
   @override
   void initState() {
     super.initState();
+    _earlier = _today.subtract(const Duration(days: 30));
     _instance = Telephony.instance;
     _attachListener();
     _init();
@@ -40,8 +43,11 @@ class _SMSReaderState extends State<SMSReader> {
     }
 
     var res = await _instance.getInboxSms();
-    _messages = res.where((el) => Utils.bankFilter(el.address!)).toList();
-    setState(() {});
+    _messages = res.where((m) =>
+        DateTime.fromMillisecondsSinceEpoch(m.date!).isAfter(_earlier)).toList();
+    _messages = _messages.where((el) => Utils.bankFilter(el.address!)).toList();
+    setState(() {
+    });
   }
 
   void _attachListener() {
@@ -57,22 +63,37 @@ class _SMSReaderState extends State<SMSReader> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            onPressed: () {
+              var msg = '';
+              _messages.forEach((m) {
+                msg += (m.body as String) + '\n \n';
+              });
+              Clipboard.setData(ClipboardData(text: msg));
+            },
+            icon: Icon(Icons.copy_all),
+          ),
+        ],
+      ),
       body: ListView.separated(
         separatorBuilder: (_, __) => Divider(),
         itemCount: _messages.length,
-        itemBuilder: (context, i) => ListTile(
-          title: Text(_messages[i].body.toString()),
-          trailing: Text(
-            DateTime.fromMillisecondsSinceEpoch((_messages[i].date) as int)
-                .toString()
-                .substring(0, 10),
-          ),
-          onTap: () {
-            Clipboard.setData(ClipboardData(text: _messages[i].body));
-            final snackBar = SnackBar(content: Text('Copied to Clipboard'));
-            Scaffold.of(context).showSnackBar(snackBar);
-          },
-        ),
+        itemBuilder: (context, i) =>
+            ListTile(
+              title: Text(_messages[i].body.toString()),
+              trailing: Text(
+                DateTime.fromMillisecondsSinceEpoch((_messages[i].date) as int)
+                    .toString()
+                    .substring(0, 10),
+              ),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: _messages[i].body));
+                final snackBar = SnackBar(content: Text('Copied to Clipboard'));
+                Scaffold.of(context).showSnackBar(snackBar);
+              },
+            ),
       ),
     );
   }
