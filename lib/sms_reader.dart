@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:sms_analyser/http_service.dart';
 import 'package:sms_analyser/utils.dart';
 import 'package:telephony/telephony.dart';
 import 'package:flutter/services.dart';
+import 'package:connectivity/connectivity.dart';
 
 backgroundMessageHandler(SmsMessage message) async {
   print('backgroundMessageHandler $message');
@@ -9,10 +13,25 @@ backgroundMessageHandler(SmsMessage message) async {
     return;
   }
 
-  /// 1. Read the arg and store message
-  /// 2. Check if network connection is available
-  ///   a. If yes, call the API to send SMS content to backend
-  ///   b. If no, store in a local DB array
+  /// Read SMS data from the argument
+  var payload = {
+    "messageData": [
+      {
+        "smsDate": message.date,
+        "senderId": message.address,
+        "message": message.body
+      }
+    ]
+  };
+
+  /// Check the network connection availability
+  var connectivityResult = await (Connectivity().checkConnectivity());
+  if (connectivityResult == ConnectivityResult.mobile ||
+      connectivityResult == ConnectivityResult.wifi) {
+    HttpService.makePostReq('/users/smsReader', json.encode(payload));
+  } else {
+    ///   b. If no, store in a local DB array
+  }
 }
 
 class SMSReader extends StatefulWidget {
@@ -43,11 +62,12 @@ class _SMSReaderState extends State<SMSReader> {
     }
 
     var res = await _instance.getInboxSms();
-    _messages = res.where((m) =>
-        DateTime.fromMillisecondsSinceEpoch(m.date!).isAfter(_earlier)).toList();
+    _messages = res
+        .where((m) =>
+            DateTime.fromMillisecondsSinceEpoch(m.date!).isAfter(_earlier))
+        .toList();
     _messages = _messages.where((el) => Utils.bankFilter(el.address!)).toList();
-    setState(() {
-    });
+    setState(() {});
   }
 
   void _attachListener() {
@@ -80,20 +100,19 @@ class _SMSReaderState extends State<SMSReader> {
       body: ListView.separated(
         separatorBuilder: (_, __) => Divider(),
         itemCount: _messages.length,
-        itemBuilder: (context, i) =>
-            ListTile(
-              title: Text(_messages[i].body.toString()),
-              trailing: Text(
-                DateTime.fromMillisecondsSinceEpoch((_messages[i].date) as int)
-                    .toString()
-                    .substring(0, 10),
-              ),
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: _messages[i].body));
-                final snackBar = SnackBar(content: Text('Copied to Clipboard'));
-                Scaffold.of(context).showSnackBar(snackBar);
-              },
-            ),
+        itemBuilder: (context, i) => ListTile(
+          title: Text(_messages[i].body.toString()),
+          trailing: Text(
+            DateTime.fromMillisecondsSinceEpoch((_messages[i].date) as int)
+                .toString()
+                .substring(0, 10),
+          ),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: _messages[i].body));
+            final snackBar = SnackBar(content: Text('Copied to Clipboard'));
+            Scaffold.of(context).showSnackBar(snackBar);
+          },
+        ),
       ),
     );
   }
