@@ -28,9 +28,12 @@ backgroundMessageHandler(SmsMessage message) async {
   var connectivityResult = await (Connectivity().checkConnectivity());
   if (connectivityResult == ConnectivityResult.mobile ||
       connectivityResult == ConnectivityResult.wifi) {
-    HttpService.makePostReq('/users/smsReader', json.encode(payload));
+    /// Check if there is pre-existing data in the local DB
+    /// a. If yes, Add to the messageData array
+    /// b. If no, send the current SMS to backend
+    HttpService.makePostReq('/<API_END_POINT>', json.encode(payload));
   } else {
-    ///   b. If no, store in a local DB array
+    /// Store in a local DB array
   }
 }
 
